@@ -4,7 +4,7 @@ const definitions = {
     formId: "resident-form",
     bodyId: "residents-body",
     fields: [
-      { name: "resident_id", label: "Resident ID", type: "text" },
+      { name: "resident_id", label: "Resident ID", type: "text", editable: false },
       { name: "full_name", label: "Full Name", type: "text", required: true },
       { name: "birth_date", label: "Birth Date", type: "date" },
       { name: "sex", label: "Sex", type: "select", required: true, options: ["Male", "Female", "Other"] },
@@ -49,7 +49,7 @@ const definitions = {
     formId: "official-form",
     bodyId: "officials-body",
     fields: [
-      { name: "official_id", label: "Official ID", type: "text" },
+      { name: "official_id", label: "Official ID", type: "text", editable: false },
       { name: "full_name", label: "Full Name", type: "text", required: true },
       { name: "position", label: "Position", type: "text", required: true },
       { name: "term", label: "Term", type: "text" },
@@ -62,7 +62,7 @@ const definitions = {
     formId: "announcement-form",
     bodyId: "announcements-body",
     fields: [
-      { name: "announcement_id", label: "Announcement ID", type: "text" },
+      { name: "announcement_id", label: "Announcement ID", type: "text", editable: false },
       { name: "title", label: "Title", type: "text", required: true },
       { name: "content", label: "Content", type: "textarea", required: true },
       { name: "date_published", label: "Date Published", type: "date" },
@@ -215,7 +215,15 @@ if (definition) {
     for (const field of definition.fields) {
       const cell = document.createElement("td");
       cell.dataset.label = field.label;
-      cell.appendChild(createEditor(field, record[field.name]));
+      if (field.editable === false) {
+        let value = record[field.name];
+        if (field.type === "date" && value) {
+          value = new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString();
+        }
+        cell.textContent = value === null || value === undefined ? "" : String(value);
+      } else {
+        cell.appendChild(createEditor(field, record[field.name]));
+      }
       row.appendChild(cell);
     }
 
@@ -293,6 +301,7 @@ if (definition) {
   const readRowPayload = (row) => {
     const payload = {};
     for (const field of definition.fields) {
+      if (field.editable === false) continue;
       const value = row.querySelector(`[name="${field.name}"]`).value.trim();
       payload[field.name] = value === "" ? null : value;
     }

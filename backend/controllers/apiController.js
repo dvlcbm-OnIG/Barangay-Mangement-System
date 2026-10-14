@@ -70,6 +70,13 @@ const validateRecordId = (req, res) => {
   return false;
 };
 
+const rejectIdentifierChanges = (req, res, identifiers) => {
+  const changedIdentifier = identifiers.find((field) => Object.hasOwn(req.body || {}, field));
+  if (!changedIdentifier) return false;
+  res.status(400).json({ message: "Record IDs cannot be changed." });
+  return true;
+};
+
 const showDashboard = async (_req, res) => {
   try {
     res.json(await dashboardModel.getSummary());
@@ -171,8 +178,8 @@ const showAllResidents = async (req, res) => {
 };
 
 const updateResident = async (req, res) => {
+  if (rejectIdentifierChanges(req, res, ["id", "resident_id"])) return;
   const payload = sanitizePayload(req.body, [
-    "resident_id",
     "full_name",
     "birth_date",
     "sex",
@@ -253,6 +260,7 @@ const showAllDocumentRequests = async (_req, res) => {
 };
 
 const updateDocumentRequest = async (req, res) => {
+  if (rejectIdentifierChanges(req, res, ["id"])) return;
   const payload = sanitizePayload(req.body, ["resident_id", "document_type", "date_requested", "status"]);
   if (Object.keys(payload).length === 0) {
     return res.status(400).json({ message: "No valid request fields were provided." });
@@ -325,7 +333,8 @@ const showAllOfficials = async (_req, res) => {
 };
 
 const updateOfficial = async (req, res) => {
-  const payload = sanitizePayload(req.body, ["official_id", "full_name", "position", "term", "contact_number"]);
+  if (rejectIdentifierChanges(req, res, ["id", "official_id"])) return;
+  const payload = sanitizePayload(req.body, ["full_name", "position", "term", "contact_number"]);
   if (Object.keys(payload).length === 0) {
     return res.status(400).json({ message: "No valid official fields were provided." });
   }
@@ -386,7 +395,8 @@ const showAllAnnouncements = async (_req, res) => {
 };
 
 const updateAnnouncement = async (req, res) => {
-  const payload = sanitizePayload(req.body, ["announcement_id", "title", "content", "date_published"]);
+  if (rejectIdentifierChanges(req, res, ["id", "announcement_id"])) return;
+  const payload = sanitizePayload(req.body, ["title", "content", "date_published"]);
   if (Object.keys(payload).length === 0) {
     return res.status(400).json({ message: "No valid announcement fields were provided." });
   }
