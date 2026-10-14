@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Residents Management</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #f3f6fb;
+        font-family: Arial, sans-serif;
+        color: #1f2937;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        background: #fff;
+        padding: 18px 20px;
+        border-radius: 14px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+        margin-bottom: 20px;
+      }
+      nav a {
+        text-decoration: none;
+        color: #1d4ed8;
+        background: #eff6ff;
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-weight: 700;
+      }
+      nav a[aria-current="page"] { background: #dbeafe; }
+      .panel {
+        background: #fff;
+        padding: 24px;
+        border-radius: 14px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+        margin-bottom: 20px;
+      }
+      h1, h2 { margin-top: 0; }
+      form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+      }
+      label {
+        display: grid;
+        gap: 8px;
+        font-weight: 700;
+      }
+      input, select, button {
+        font: inherit;
+      }
+      input, select {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+      }
+      button {
+        background: #2563eb;
+        color: #fff;
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      button.danger { background: #dc2626; }
+      .search-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      .search-row input {
+        flex: 1;
+        min-width: 180px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+      }
+      th, td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      th {
+        background: #f8fafc;
+        color: #334155;
+      }
+      .actions { display: flex; gap: 8px; }
+      .pagination {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+      #message {
+        min-height: 24px;
+        margin-top: 12px;
+        font-weight: 700;
+      }
+      #message.error { color: #b91c1c; }
+      #message.success { color: #15803d; }
+      @media (max-width: 640px) {
+        .container { padding: 16px; }
+      }
+    </style>
+  </head>
+  <body data-module="residents">
+    <div class="container">
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/showResidents.html" aria-current="page">Residents</a>
+        <a href="/documentRequests.html">Document Requests</a>
+        <a href="/officials.html">Officials</a>
+        <a href="/announcements.html">Announcements</a>
+        <button type="button" id="logout-button">Log out</button>
+      </nav>
+
+      <div class="panel">
+        <h1>Resident Records</h1>
+        <form id="resident-form">
+          <label>
+            Resident ID
+            <input type="text" name="resident_id" placeholder="RES-1004" />
+          </label>
+          <label>
+            Full Name
+            <input type="text" name="full_name" required />
+          </label>
+          <label>
+            Birth Date
+            <input type="date" name="birth_date" />
+          </label>
+          <label>
+            Sex
+            <select name="sex" required>
+              <option value="">Select sex</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label>
+            Address
+            <input type="text" name="address" required />
+          </label>
+          <label>
+            Contact Number
+            <input type="tel" name="contact_number" maxlength="20" />
+          </label>
+          <label>
+            Civil Status
+            <select name="civil_status">
+              <option value="">Select status</option>
+              <option value="Single">Single</option>
+              <option value="Married">Married</option>
+              <option value="Widowed">Widowed</option>
+              <option value="Separated">Separated</option>
+            </select>
+          </label>
+          <div style="display:flex; align-items:end;">
+            <button type="submit" id="submit-button">Add Resident</button>
+          </div>
+        </form>
+        <div id="message" aria-live="polite"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Resident Directory</h2>
+        <div class="search-row">
+          <input id="search-input" type="search" placeholder="Search residents..." />
+          <button type="button" id="search-button">Search</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Resident ID</th>
+                <th>Full Name</th>
+                <th>Birth Date</th>
+                <th>Sex</th>
+                <th>Address</th>
+                <th>Contact</th>
+                <th>Civil Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="residents-body"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button type="button" id="prev-page">Previous</button>
+          <span id="page-indicator">Page 1</span>
+          <button type="button" id="next-page">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/auth.js" defer></script>
+    <script src="/management.js" defer></script>
+  </body>
+</html>

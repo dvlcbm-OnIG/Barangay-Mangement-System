@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Barangay Officials</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #f3f6fb;
+        font-family: Arial, sans-serif;
+        color: #1f2937;
+      }
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        background: #fff;
+        padding: 18px 20px;
+        border-radius: 14px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+      }
+      nav a {
+        text-decoration: none;
+        color: #1d4ed8;
+        background: #eff6ff;
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-weight: 700;
+      }
+      nav a[aria-current="page"] { background: #dbeafe; }
+      .panel {
+        background: #fff;
+        padding: 24px;
+        border-radius: 14px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+        margin-bottom: 20px;
+      }
+      form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+      }
+      label {
+        display: grid;
+        gap: 8px;
+        font-weight: 700;
+      }
+      input, button {
+        font: inherit;
+      }
+      input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+      }
+      button {
+        background: #2563eb;
+        color: #fff;
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      button.danger { background: #dc2626; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+      }
+      th, td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      th {
+        background: #f8fafc;
+        color: #334155;
+      }
+      .actions { display: flex; gap: 8px; }
+      #message {
+        min-height: 24px;
+        margin-top: 12px;
+        font-weight: 700;
+      }
+      #message.error { color: #b91c1c; }
+      #message.success { color: #15803d; }
+    </style>
+  </head>
+  <body data-module="officials">
+    <div class="container">
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/showResidents.html">Residents</a>
+        <a href="/documentRequests.html">Document Requests</a>
+        <a href="/officials.html" aria-current="page">Officials</a>
+        <a href="/announcements.html">Announcements</a>
+        <button type="button" id="logout-button">Log out</button>
+      </nav>
+
+      <div class="panel">
+        <h1>Barangay Officials</h1>
+        <form id="official-form">
+          <label>
+            Full Name
+            <input type="text" name="full_name" required />
+          </label>
+          <label>
+            Position
+            <input type="text" name="position" required />
+          </label>
+          <label>
+            Term
+            <input type="text" name="term" placeholder="2025-2028" />
+          </label>
+          <label>
+            Contact Number
+            <input type="tel" name="contact_number" maxlength="20" />
+          </label>
+          <div style="display:flex; align-items:end;">
+            <button type="submit">Add Official</button>
+          </div>
+        </form>
+        <div id="message" aria-live="polite"></div>
+      </div>
+
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Position</th>
+              <th>Term</th>
+              <th>Contact</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="officials-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script src="/auth.js" defer></script>
+    <script src="/management.js" defer></script>
+  </body>
+</html>

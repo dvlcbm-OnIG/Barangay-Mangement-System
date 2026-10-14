@@ -1,0 +1,177 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Barangay Management Dashboard</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f3f6fb;
+        color: #1f2937;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        background: #ffffff;
+        padding: 18px 20px;
+        border-radius: 14px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+        margin-bottom: 24px;
+      }
+      .nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .nav-links a, .auth-button {
+        text-decoration: none;
+        color: #1d4ed8;
+        background: #eff6ff;
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-weight: 700;
+      }
+      .nav-links a[aria-current="page"] {
+        background: #dbeafe;
+      }
+      .auth-button {
+        border: 0;
+        cursor: pointer;
+      }
+      h1 {
+        margin: 0 0 18px;
+        font-size: 2rem;
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+      }
+      .card .label {
+        color: #64748b;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .card .value {
+        margin-top: 16px;
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .card .subtext {
+        margin-top: 8px;
+        color: #475569;
+      }
+      .status-bar {
+        margin-top: 24px;
+        background: #fff;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+      }
+      .status-bar h2 {
+        margin: 0 0 16px;
+      }
+      .status-bar ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #334155;
+        line-height: 1.8;
+      }
+      @media (max-width: 640px) {
+        .container { padding: 16px; }
+        nav { align-items: flex-start; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <nav>
+        <div class="nav-links">
+          <a href="/" aria-current="page">Dashboard</a>
+          <a href="/showResidents.html">Residents</a>
+          <a href="/documentRequests.html">Document Requests</a>
+          <a href="/officials.html">Officials</a>
+          <a href="/announcements.html">Announcements</a>
+        </div>
+        <button class="auth-button" id="logout-button" type="button">Log out</button>
+      </nav>
+
+      <h1>Barangay Management Dashboard</h1>
+
+      <div class="summary-grid">
+        <div class="card">
+          <div class="label">Total Residents</div>
+          <div class="value" id="totalResidents">0</div>
+          <div class="subtext">Active resident records</div>
+        </div>
+        <div class="card">
+          <div class="label">Pending Requests</div>
+          <div class="value" id="pendingRequests">0</div>
+          <div class="subtext">Awaiting action</div>
+        </div>
+        <div class="card">
+          <div class="label">Officials</div>
+          <div class="value" id="totalOfficials">0</div>
+          <div class="subtext">Barangay leadership roster</div>
+        </div>
+        <div class="card">
+          <div class="label">Announcements</div>
+          <div class="value" id="totalAnnouncements">0</div>
+          <div class="subtext">Published notices</div>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <h2>System Overview</h2>
+        <ul>
+          <li>Resident management tracks personal information, contact details, and addresses.</li>
+          <li>Document requests can be monitored and updated from Pending to Processing or Completed.</li>
+          <li>Barangay officials and announcements are managed centrally for quick access.</li>
+        </ul>
+      </div>
+    </div>
+
+    <script src="/auth.js" defer></script>
+    <script>
+      async function loadDashboard() {
+        try {
+          const response = await fetch('/dashboard');
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message || 'Unable to load dashboard.');
+
+          document.getElementById('totalResidents').textContent = data.total_residents ?? 0;
+          document.getElementById('pendingRequests').textContent = data.pending_requests ?? 0;
+          document.getElementById('totalOfficials').textContent = data.total_officials ?? 0;
+          document.getElementById('totalAnnouncements').textContent = data.total_announcements ?? 0;
+        } catch (error) {
+          document.getElementById('totalResidents').textContent = '--';
+          document.getElementById('pendingRequests').textContent = '--';
+          document.getElementById('totalOfficials').textContent = '--';
+          document.getElementById('totalAnnouncements').textContent = '--';
+          console.error(error);
+        }
+      }
+
+      loadDashboard();
+    </script>
+  </body>
+</html>
