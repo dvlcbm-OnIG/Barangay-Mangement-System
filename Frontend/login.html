@@ -58,11 +58,27 @@
         cursor: pointer;
         font-weight: 700;
       }
-      .helper {
-        margin-top: 12px;
-        color: #475569;
+      .demo-credentials {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border: 1px solid #bfdbfe;
+        border-radius: 12px;
+        background: #eff6ff;
+        color: #334155;
         font-size: 0.9rem;
-        text-align: center;
+      }
+      .demo-credentials h2 {
+        margin: 0 0 8px;
+        color: #1e40af;
+        font-size: 0.95rem;
+      }
+      .demo-credentials p {
+        margin: 4px 0 0;
+        color: #475569;
+        text-align: left;
+      }
+      .demo-credentials strong {
+        color: #1e3a8a;
       }
       #message {
         min-height: 24px;
@@ -87,6 +103,11 @@
           <input type="password" id="password" name="password" autocomplete="current-password" required />
         </label>
         <button type="submit">Login</button>
+        <aside class="demo-credentials" aria-label="Demo login credentials">
+          <h2>Demo credentials</h2>
+          <p><strong>Username:</strong> admin1</p>
+          <p><strong>Password:</strong> 123</p>
+        </aside>
       </form>
       <div id="message" aria-live="polite"></div>
     </div>
