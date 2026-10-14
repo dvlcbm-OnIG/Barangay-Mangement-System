@@ -80,6 +80,13 @@
       .demo-credentials strong {
         color: #1e3a8a;
       }
+      .card {
+        width: min(100% - 32px, 440px);
+        padding: clamp(22px, 6vw, 34px);
+      }
+      form > button {
+        width: 100%;
+      }
       #message {
         min-height: 24px;
         margin-top: 12px;
@@ -87,9 +94,18 @@
       }
       #message.error { color: #b91c1c; }
       #message.success { color: #15803d; }
+      @media (max-width: 480px) {
+        body {
+          padding-block: 16px;
+        }
+        .card {
+          width: min(100% - 24px, 440px);
+        }
+      }
     </style>
+    <link rel="stylesheet" href="/responsive.css" />
   </head>
-  <body>
+  <body class="login-page">
     <div class="card">
       <h1>Barangay Staff Login</h1>
       <p>Access the barangay management system</p>

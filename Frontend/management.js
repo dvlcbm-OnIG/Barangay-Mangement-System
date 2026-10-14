@@ -81,8 +81,17 @@ if (definition) {
   if (table.parentElement.style.overflowX !== "auto") {
     const wrapper = document.createElement("div");
     wrapper.style.overflowX = "auto";
+    wrapper.className = "table-scroll";
+    wrapper.tabIndex = 0;
+    wrapper.setAttribute("role", "region");
+    wrapper.setAttribute("aria-label", "Scrollable management table");
     table.before(wrapper);
     wrapper.appendChild(table);
+  } else {
+    table.parentElement.classList.add("table-scroll");
+    table.parentElement.tabIndex = 0;
+    table.parentElement.setAttribute("role", "region");
+    table.parentElement.setAttribute("aria-label", "Scrollable management table");
   }
   const message = document.getElementById("message");
   const records = new Map();
@@ -156,8 +165,9 @@ if (definition) {
     return input;
   };
 
-  const appendTextCell = (row, value) => {
+  const appendTextCell = (row, value, label) => {
     const cell = document.createElement("td");
+    cell.dataset.label = label;
     cell.textContent = value === null || value === undefined ? "" : String(value);
     row.appendChild(cell);
   };
@@ -167,18 +177,20 @@ if (definition) {
     row.dataset.recordId = record.id;
     records.set(String(record.id), record);
 
-    if (moduleName === "residents" || moduleName === "requests") appendTextCell(row, record.id);
+    if (moduleName === "residents" || moduleName === "requests") appendTextCell(row, record.id, "ID");
     for (const field of definition.fields) {
       if (moduleName === "requests" && field.name === "resident_id") {
-        appendTextCell(row, record.resident_name || record.resident_id || "Unknown");
+        appendTextCell(row, record.resident_name || record.resident_id || "Unknown", field.label);
       } else {
         let value = record[field.name];
         if (field.type === "date" && value) value = new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString();
-        appendTextCell(row, value);
+        appendTextCell(row, value, field.label);
       }
     }
 
     const actionCell = document.createElement("td");
+    actionCell.dataset.label = "Actions";
+    actionCell.dataset.actions = "true";
     const actions = document.createElement("div");
     actions.className = "actions";
     const editButton = document.createElement("button");
@@ -199,14 +211,17 @@ if (definition) {
   const renderEditingRow = (record) => {
     const row = document.createElement("tr");
     row.dataset.recordId = record.id;
-    if (moduleName === "residents" || moduleName === "requests") appendTextCell(row, record.id);
+    if (moduleName === "residents" || moduleName === "requests") appendTextCell(row, record.id, "ID");
     for (const field of definition.fields) {
       const cell = document.createElement("td");
+      cell.dataset.label = field.label;
       cell.appendChild(createEditor(field, record[field.name]));
       row.appendChild(cell);
     }
 
     const actionCell = document.createElement("td");
+    actionCell.dataset.label = "Actions";
+    actionCell.dataset.actions = "true";
     const actions = document.createElement("div");
     actions.className = "actions";
     const saveButton = document.createElement("button");
@@ -227,6 +242,7 @@ if (definition) {
     const row = document.createElement("tr");
     const cell = document.createElement("td");
     cell.colSpan = tableBody.closest("table").querySelectorAll("thead th").length;
+    row.className = "empty-row";
     cell.textContent = "No records found.";
     cell.className = "muted";
     row.appendChild(cell);

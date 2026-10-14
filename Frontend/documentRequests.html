@@ -98,10 +98,16 @@
       }
       #message.error { color: #b91c1c; }
       #message.success { color: #15803d; }
+      .table-scroll {
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scrollbar-width: thin;
+      }
       @media (max-width: 640px) {
         .container { padding: 16px; }
       }
     </style>
+    <link rel="stylesheet" href="/responsive.css" />
   </head>
   <body data-module="requests">
     <div class="container">
