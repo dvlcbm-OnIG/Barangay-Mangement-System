@@ -97,9 +97,10 @@ textarea:focus-visible {
 }
 
 .container {
-  width: min(100%, 1280px);
+  width: min(100%, 1560px);
+  max-width: 1560px;
   margin-inline: auto;
-  padding: clamp(16px, 3vw, 32px);
+  padding: clamp(16px, 2.5vw, 28px);
 }
 
 nav {
@@ -227,7 +228,7 @@ textarea {
 
 table {
   width: 100%;
-  min-width: 900px;
+  min-width: 1120px;
   table-layout: auto;
   border-collapse: separate;
   border-spacing: 0;
@@ -377,7 +378,9 @@ dialog button.secondary:hover:not(:disabled) {
   form {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   }
+}
 
+@media (max-width: 1320px) {
   .table-scroll {
     overflow: visible;
   }
@@ -489,6 +492,16 @@ dialog button.secondary:hover:not(:disabled) {
     white-space: normal;
     overflow-wrap: normal;
     word-break: normal;
+  }
+}
+
+@media (min-width: 761px) {
+  .container {
+    width: min(100%, 1560px);
+  }
+
+  .panel {
+    padding-inline: clamp(20px, 2.2vw, 36px);
   }
 }
 
