@@ -227,8 +227,20 @@ textarea {
 
 table {
   width: 100%;
+  min-width: 900px;
+  table-layout: auto;
   border-collapse: separate;
   border-spacing: 0;
+}
+
+.table-scroll td {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.table-scroll td[data-label="ID"],
+.table-scroll td[data-label$=" ID"] {
+  white-space: nowrap;
 }
 
 .table-scroll {
@@ -365,6 +377,119 @@ dialog button.secondary:hover:not(:disabled) {
   form {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   }
+
+  .table-scroll {
+    overflow: visible;
+  }
+
+  .table-scroll table {
+    display: block;
+    min-width: 0;
+  }
+
+  .table-scroll table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .table-scroll table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .table-scroll table tbody tr:not(.empty-row) {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
+  }
+
+  .table-scroll table tbody td {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(88px, 34%) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eef2f7;
+    overflow-wrap: break-word;
+    word-break: normal;
+    white-space: normal;
+  }
+
+  .table-scroll table tbody td::before {
+    content: attr(data-label);
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .table-scroll table tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  .table-scroll table tbody td[data-actions="true"] {
+    display: block;
+    padding-top: 12px;
+  }
+
+  .table-scroll table tbody td[data-actions="true"]::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .table-scroll .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .table-scroll .actions button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 10px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .table-scroll table tbody tr.empty-row {
+    display: block;
+    padding: 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    color: var(--color-muted);
+  }
+
+  .table-scroll table tbody tr.empty-row td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .table-scroll table tbody tr.empty-row td::before {
+    content: none;
+  }
+
+  .table-scroll table tbody td input,
+  .table-scroll table tbody td select,
+  .table-scroll table tbody td textarea {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
 }
 
 @media (max-width: 520px) {
@@ -424,113 +549,6 @@ dialog button.secondary:hover:not(:disabled) {
 
   .table-scroll {
     overflow: visible;
-  }
-
-  table {
-    display: block;
-    min-width: 0;
-  }
-
-  table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    clip-path: inset(50%);
-  }
-
-  table tbody {
-    display: grid;
-    gap: 12px;
-  }
-
-  table tbody tr:not(.empty-row) {
-    display: grid;
-    min-width: 0;
-    grid-template-columns: minmax(0, 1fr);
-    overflow: hidden;
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    background: var(--color-surface);
-    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
-  }
-
-  table tbody td {
-    display: grid;
-    min-width: 0;
-    grid-template-columns: minmax(88px, 34%) minmax(0, 1fr);
-    align-items: start;
-    gap: 10px;
-    padding: 10px 12px;
-    border-bottom: 1px solid #eef2f7;
-    overflow-wrap: anywhere;
-  }
-
-  table tbody td::before {
-    content: attr(data-label);
-    color: #64748b;
-    font-size: 0.78rem;
-    font-weight: 700;
-  }
-
-  table tbody td:last-child {
-    border-bottom: 0;
-  }
-
-  table tbody td[data-actions="true"] {
-    display: block;
-    padding-top: 12px;
-  }
-
-  table tbody td[data-actions="true"]::before {
-    display: block;
-    margin-bottom: 8px;
-  }
-
-  .actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .actions button {
-    width: 100%;
-    min-width: 0;
-    min-height: 44px;
-    padding: 8px 10px;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-
-  table tbody tr.empty-row {
-    display: block;
-    padding: 14px;
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    color: var(--color-muted);
-  }
-
-  table tbody tr.empty-row td {
-    display: block;
-    padding: 0;
-    border: 0;
-  }
-
-  table tbody tr.empty-row td::before {
-    content: none;
-  }
-
-  table tbody td input,
-  table tbody td select,
-  table tbody td textarea {
-    width: 100%;
-    min-width: 0;
-  }
-
-  table tbody td textarea {
-    min-width: 0;
   }
 
   .card .label {
