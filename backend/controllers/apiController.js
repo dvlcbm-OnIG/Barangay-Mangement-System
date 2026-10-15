@@ -1,10 +1,13 @@
+const crypto = require("crypto");
 const announcementModel = require("../models/announcementModel");
 const dashboardModel = require("../models/dashboardModel");
 const documentRequestModel = require("../models/documentRequestModel");
 const officialModel = require("../models/officialModel");
 const residentModel = require("../models/residentModel");
 const userModel = require("../models/userModel");
-const { createSession, destroySession } = require("../auth");
+const loginActivityModel = require("../models/loginActivityModel");
+const { getClientMetadata } = require("../clientMetadata");
+const { SESSION_TTL_MS, createSession, destroySession } = require("../auth");
 
 const normalizeText = (value) => (value === undefined || value === null ? null : String(value).trim());
 
@@ -88,18 +91,44 @@ const showDashboard = async (_req, res) => {
 const loginUser = async (req, res) => {
   const username = normalizeText(req.body?.username);
   const password = typeof req.body?.password === "string" ? req.body.password : "";
+  const metadata = getClientMetadata(req);
 
   if (!username || !password) {
+    try {
+      await loginActivityModel.createFailedLogin({
+        accountIdentifier: username?.slice(0, 255) || null,
+        failureReason: "missing_credentials",
+        metadata,
+      });
+    } catch (error) {
+      console.error("Could not record failed login attempt:", error.message);
+    }
     return res.status(400).json({ message: "Username and password are required." });
   }
 
   try {
     const user = await userModel.authenticate(username, password);
     if (!user) {
+      try {
+        await loginActivityModel.createFailedLogin({
+          accountIdentifier: username.slice(0, 255),
+          failureReason: "invalid_credentials",
+          metadata,
+        });
+      } catch (error) {
+        console.error("Could not record failed login attempt:", error.message);
+      }
       return res.status(401).json({ message: "Invalid username or password." });
     }
 
-    createSession(res, user);
+    const sessionId = crypto.randomUUID();
+    await loginActivityModel.createSuccessfulLogin({
+      sessionId,
+      user,
+      expiresInMs: SESSION_TTL_MS,
+      metadata,
+    });
+    createSession(res, user, sessionId);
     res.json({
       message: "Login successful.",
       user: {
@@ -110,13 +139,70 @@ const loginUser = async (req, res) => {
       },
     });
   } catch (error) {
-    handleDatabaseError(res, error);
+    console.error("Could not complete login:", error.message);
+    res.status(500).json({ message: "Unable to process login right now." });
   }
 };
 
-const logoutUser = (req, res) => {
-  destroySession(req, res);
+const logoutUser = async (req, res) => {
+  const sessionId = destroySession(req, res);
+  if (sessionId) {
+    try {
+      const updated = await loginActivityModel.markLoggedOut(sessionId);
+      if (!updated) await loginActivityModel.markExpired(sessionId);
+    } catch (error) {
+      console.error("Could not record logout:", error.message);
+      return res.status(500).json({ message: "Your session ended, but logout activity could not be saved." });
+    }
+  }
   res.json({ message: "Logged out successfully." });
+};
+
+const showLoginActivity = async (req, res) => {
+  const page = Number(req.query.page || 1);
+  const limit = Number(req.query.limit || 25);
+  const eventType = normalizeText(req.query.eventType) || "";
+  const status = normalizeText(req.query.status) || "";
+  const sort = normalizeText(req.query.sort) || "login_at";
+  const search = normalizeText(req.query.search)?.slice(0, 200) || "";
+  const parseBoundary = (value) => {
+    if (value === undefined || value === "") return null;
+    if (typeof value !== "string" || Number.isNaN(Date.parse(value))) return undefined;
+    return new Date(value).toISOString();
+  };
+  const from = parseBoundary(req.query.from);
+  const to = parseBoundary(req.query.to);
+
+  if (!Number.isInteger(page) || page < 1 ||
+      !Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return res.status(400).json({ message: "Invalid page or page size." });
+  }
+  if (!["", "success", "failed", "logout"].includes(eventType)) {
+    return res.status(400).json({ message: "Invalid event type filter." });
+  }
+  if (!["", "active", "logged_out", "expired", "failed"].includes(status)) {
+    return res.status(400).json({ message: "Invalid session status filter." });
+  }
+  if (!["login_at", "last_activity_at"].includes(sort)) {
+    return res.status(400).json({ message: "Invalid sort order." });
+  }
+  if (from === undefined || to === undefined || (from && to && from >= to)) {
+    return res.status(400).json({ message: "Invalid date range." });
+  }
+
+  try {
+    res.set("Cache-Control", "no-store");
+    await loginActivityModel.expireElapsedSessions();
+    const filters = { search, eventType, status, from, to, sort, page, limit };
+    const [result, summary] = await Promise.all([
+      loginActivityModel.findPage(filters),
+      loginActivityModel.getSummary({ from, to }),
+    ]);
+    res.json({ ...result, summary });
+  } catch (error) {
+    console.error("Could not load login activity:", error.message);
+    res.status(500).json({ message: "Unable to load login activity right now." });
+  }
 };
 
 const getCurrentUser = (req, res) => {
@@ -431,6 +517,7 @@ module.exports = {
   loginUser,
   logoutUser,
   getCurrentUser,
+  showLoginActivity,
   createResident,
   showAllResidents,
   updateResident,

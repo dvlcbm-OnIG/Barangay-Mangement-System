@@ -8,6 +8,7 @@ const apiRoutes = require("./routes/apiRoutes");
 
 const app = express();
 
+app.set("trust proxy", process.env.TRUST_PROXY === "1" ? 1 : false);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.get("/", (req, res) => {

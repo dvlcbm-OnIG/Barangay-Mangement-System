@@ -46,11 +46,38 @@ const ensureDatabaseSchema = async () => {
       role TEXT DEFAULT 'staff',
       created_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS login_activity (
+      id BIGSERIAL PRIMARY KEY,
+      session_id UUID UNIQUE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      account_identifier TEXT,
+      event_type TEXT NOT NULL CHECK (event_type IN ('login_success', 'login_failed')),
+      login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      logout_at TIMESTAMPTZ,
+      expires_at TIMESTAMPTZ,
+      last_activity_at TIMESTAMPTZ,
+      session_status TEXT NOT NULL CHECK (session_status IN ('active', 'logged_out', 'expired', 'failed')),
+      ip_address TEXT,
+      location_city TEXT,
+      location_region TEXT,
+      location_country TEXT,
+      device_type TEXT,
+      operating_system TEXT,
+      browser TEXT,
+      user_agent TEXT,
+      failure_reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`,
   ];
 
   for (const statement of schemaStatements) {
     await pool.query(statement);
   }
+
+  await pool.query("CREATE INDEX IF NOT EXISTS login_activity_login_at_idx ON login_activity (login_at DESC)");
+  await pool.query("CREATE INDEX IF NOT EXISTS login_activity_user_id_idx ON login_activity (user_id)");
+  await pool.query("CREATE INDEX IF NOT EXISTS login_activity_event_type_idx ON login_activity (event_type)");
+  await pool.query("CREATE INDEX IF NOT EXISTS login_activity_session_status_idx ON login_activity (session_status)");
 
   const addColumns = [
     ["residents", "resident_id", "TEXT"],

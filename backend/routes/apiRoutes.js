@@ -10,6 +10,7 @@ router.get("/session", requireAuth, controller.getCurrentUser);
 
 router.use(requireAuth, requireAdmin);
 router.get("/dashboard", controller.showDashboard);
+router.get("/activity-logs", controller.showLoginActivity);
 
 router.post("/resident", controller.createResident);
 router.get("/resident", controller.showAllResidents);
