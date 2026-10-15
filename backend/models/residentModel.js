@@ -11,10 +11,23 @@ const findPage = async ({ search, page, limit }) => {
   const params = [];
   let whereSql = "";
 
-  if (search) {
-    whereSql =
-      " WHERE resident_id::text ILIKE $1 OR full_name ILIKE $1 OR address ILIKE $1 OR contact_number ILIKE $1 OR civil_status ILIKE $1 OR sex ILIKE $1 OR birth_date::text ILIKE $1";
-    params.push(`%${search}%`);
+  const searchTerms = search.trim().split(/\s+/).filter(Boolean);
+  if (searchTerms.length > 0) {
+    const searchableFields = [
+      "resident_id::text",
+      "full_name",
+      "address",
+      "contact_number",
+      "civil_status",
+      "sex",
+      "birth_date::text",
+    ];
+    const termConditions = searchTerms.map((term) => {
+      params.push(`%${term}%`);
+      const placeholder = `$${params.length}`;
+      return `(${searchableFields.map((field) => `${field} ILIKE ${placeholder}`).join(" OR ")})`;
+    });
+    whereSql = ` WHERE ${termConditions.join(" OR ")}`;
   }
 
   const countResult = await pool.query(

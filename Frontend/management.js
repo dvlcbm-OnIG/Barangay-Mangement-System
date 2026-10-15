@@ -459,14 +459,15 @@ if (definition) {
 
   if (definition.paginated) {
     const searchInput = document.getElementById("search-input");
+    let searchTimeout;
     const searchRecords = () => {
       searchQuery = searchInput.value.trim();
       currentPage = 1;
       loadRecords().catch((error) => setMessage(error.message, "error"));
     };
-    document.getElementById("search-button").addEventListener("click", searchRecords);
-    searchInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") searchRecords();
+    searchInput.addEventListener("input", () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(searchRecords, 1000);
     });
     document.getElementById("prev-page").addEventListener("click", () => {
       if (currentPage > 1) {
