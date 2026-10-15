@@ -136,7 +136,7 @@ const loadActivity = async () => {
     } catch {
       if (/^\s*<!doctype html|^\s*<html/i.test(responseText)) {
         throw new Error(
-          "The server returned an HTML page instead of activity data. Redeploy the latest backend so the /activity-logs API route is available."
+          "This page is being served by a host without the activity API. Open it through the app backend (for localhost: http://localhost:3000/activityLogs.html), not a static preview server."
         );
       }
       throw new Error(`The server returned an invalid activity response (HTTP ${response.status}).`);
