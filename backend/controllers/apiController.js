@@ -125,7 +125,6 @@ const getCurrentUser = (req, res) => {
 
 const createResident = async (req, res) => {
   const payload = sanitizePayload(req.body, [
-    "resident_id",
     "full_name",
     "birth_date",
     "sex",
@@ -149,7 +148,7 @@ const createResident = async (req, res) => {
     ]);
   if (validationError) return res.status(400).json({ message: validationError });
 
-  if (!payload.resident_id) payload.resident_id = `RES-${Date.now()}`;
+  payload.resident_id = `RES-${Date.now()}`;
 
   try {
     const resident = await residentModel.create({

@@ -177,7 +177,7 @@ if (definition) {
     row.dataset.recordId = record.id;
     records.set(String(record.id), record);
 
-    if (moduleName === "residents" || moduleName === "requests") appendTextCell(row, record.id, "ID");
+    if (moduleName === "requests") appendTextCell(row, record.id, "ID");
     for (const field of definition.fields) {
       if (moduleName === "requests" && field.name === "resident_id") {
         appendTextCell(row, record.resident_name || record.resident_id || "Unknown", field.label);
@@ -211,7 +211,7 @@ if (definition) {
   const renderEditingRow = (record) => {
     const row = document.createElement("tr");
     row.dataset.recordId = record.id;
-    if (moduleName === "residents" || moduleName === "requests") appendTextCell(row, record.id, "ID");
+    if (moduleName === "requests") appendTextCell(row, record.id, "ID");
     for (const field of definition.fields) {
       const cell = document.createElement("td");
       cell.dataset.label = field.label;
