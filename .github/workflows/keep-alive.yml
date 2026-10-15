@@ -1,0 +1,16 @@
+name: Keep Render Server Awake
+
+on:
+  schedule:
+    # Run every 10 minutes to prevent Render free instance from sleeping
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allows manual trigger if needed
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Server
+        run: |
+          curl -s https://barangay-mangement-system.onrender.com > /dev/null
+          echo "Server pinged successfully"
