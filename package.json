@@ -4,8 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node backend/server.js",
-    "test": "node --test backend/tests/loginActivity.test.js"
+    "start": "node backend/server.js"
   },
   "keywords": [],
   "author": "",

@@ -1,6 +1,40 @@
+const fs = require("fs");
+const path = require("path");
 const { pool } = require("../db");
 
+const migrationDirectory = path.join(__dirname, "..", "migrations");
+
+const ensureSchemaMigrationsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      name TEXT PRIMARY KEY,
+      executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+};
+
+const applyMigrations = async () => {
+  if (!fs.existsSync(migrationDirectory)) return;
+
+  const files = fs
+    .readdirSync(migrationDirectory)
+    .filter((file) => file.toLowerCase().endsWith(".sql"))
+    .sort();
+
+  for (const file of files) {
+    const migrationName = file;
+    const exists = await pool.query("SELECT 1 FROM schema_migrations WHERE name = $1 LIMIT 1", [migrationName]);
+    if (exists.rowCount > 0) continue;
+
+    const migrationSql = fs.readFileSync(path.join(migrationDirectory, file), "utf8");
+    await pool.query(migrationSql);
+    await pool.query("INSERT INTO schema_migrations (name) VALUES ($1)", [migrationName]);
+  }
+};
+
 const ensureDatabaseSchema = async () => {
+  await ensureSchemaMigrationsTable();
+
   const schemaStatements = [
     `CREATE TABLE IF NOT EXISTS residents (
       id SERIAL PRIMARY KEY,
@@ -15,7 +49,7 @@ const ensureDatabaseSchema = async () => {
     )`,
     `CREATE TABLE IF NOT EXISTS document_requests (
       id SERIAL PRIMARY KEY,
-      resident_id INTEGER,
+      resident_id INTEGER REFERENCES residents(id) ON DELETE SET NULL,
       document_type TEXT,
       date_requested DATE DEFAULT CURRENT_DATE,
       status TEXT DEFAULT 'Pending',
@@ -38,6 +72,21 @@ const ensureDatabaseSchema = async () => {
       date_published DATE DEFAULT CURRENT_DATE,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS complaints (
+      id SERIAL PRIMARY KEY,
+      complaint_id TEXT UNIQUE,
+      resident_id INTEGER REFERENCES residents(id) ON DELETE SET NULL,
+      complainant_name TEXT NOT NULL,
+      complainant_contact TEXT,
+      complaint_type TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      description TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Submitted' CHECK (status IN ('Submitted', 'Under Review', 'Validated', 'Resolved', 'Rejected')),
+      priority TEXT NOT NULL DEFAULT 'Medium' CHECK (priority IN ('Low', 'Medium', 'High', 'Urgent')),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      resolved_at TIMESTAMP
+    )`,
     `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE,
@@ -46,38 +95,17 @@ const ensureDatabaseSchema = async () => {
       role TEXT DEFAULT 'staff',
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-    `CREATE TABLE IF NOT EXISTS login_activity (
-      id BIGSERIAL PRIMARY KEY,
-      session_id UUID UNIQUE,
-      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      account_identifier TEXT,
-      event_type TEXT NOT NULL CHECK (event_type IN ('login_success', 'login_failed')),
-      login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      logout_at TIMESTAMPTZ,
-      expires_at TIMESTAMPTZ,
-      last_activity_at TIMESTAMPTZ,
-      session_status TEXT NOT NULL CHECK (session_status IN ('active', 'logged_out', 'expired', 'failed')),
-      ip_address TEXT,
-      location_city TEXT,
-      location_region TEXT,
-      location_country TEXT,
-      device_type TEXT,
-      operating_system TEXT,
-      browser TEXT,
-      user_agent TEXT,
-      failure_reason TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`,
   ];
 
   for (const statement of schemaStatements) {
     await pool.query(statement);
   }
 
-  await pool.query("CREATE INDEX IF NOT EXISTS login_activity_login_at_idx ON login_activity (login_at DESC)");
-  await pool.query("CREATE INDEX IF NOT EXISTS login_activity_user_id_idx ON login_activity (user_id)");
-  await pool.query("CREATE INDEX IF NOT EXISTS login_activity_event_type_idx ON login_activity (event_type)");
-  await pool.query("CREATE INDEX IF NOT EXISTS login_activity_session_status_idx ON login_activity (session_status)");
+  await applyMigrations();
+
+  await pool.query("CREATE INDEX IF NOT EXISTS complaints_status_idx ON complaints (status)");
+  await pool.query("CREATE INDEX IF NOT EXISTS complaints_priority_idx ON complaints (priority)");
+  await pool.query("CREATE INDEX IF NOT EXISTS complaints_resident_id_idx ON complaints (resident_id)");
 
   const addColumns = [
     ["residents", "resident_id", "TEXT"],
@@ -87,6 +115,16 @@ const ensureDatabaseSchema = async () => {
     ["document_requests", "status", "TEXT"],
     ["officials", "official_id", "TEXT"],
     ["announcements", "announcement_id", "TEXT"],
+    ["complaints", "complaint_id", "TEXT"],
+    ["complaints", "resident_id", "INTEGER"],
+    ["complaints", "complainant_name", "TEXT"],
+    ["complaints", "complainant_contact", "TEXT"],
+    ["complaints", "complaint_type", "TEXT"],
+    ["complaints", "subject", "TEXT"],
+    ["complaints", "description", "TEXT"],
+    ["complaints", "status", "TEXT"],
+    ["complaints", "priority", "TEXT"],
+    ["complaints", "resolved_at", "TIMESTAMP"],
     ["users", "role", "TEXT"],
   ];
 

@@ -44,6 +44,41 @@ const definitions = {
     ],
     success: "Document request updated successfully.",
   },
+  complaints: {
+    endpoint: "/complaint",
+    formId: "complaint-form",
+    bodyId: "complaints-body",
+    fields: [
+      { name: "complaint_id", label: "Complaint ID", type: "text", editable: false },
+      { name: "resident_id", label: "Resident", type: "resident" },
+      { name: "complainant_name", label: "Complainant Name", type: "text", required: true },
+      { name: "complainant_contact", label: "Contact Number", type: "tel" },
+      {
+        name: "complaint_type",
+        label: "Complaint Type",
+        type: "select",
+        required: true,
+        options: ["Noise", "Public Safety", "Infrastructure", "Sanitation", "Other"],
+      },
+      { name: "subject", label: "Subject", type: "text", required: true },
+      { name: "description", label: "Description", type: "textarea", required: true },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        required: true,
+        options: ["Submitted", "Under Review", "Validated", "Resolved", "Rejected"],
+      },
+      {
+        name: "priority",
+        label: "Priority",
+        type: "select",
+        required: true,
+        options: ["Low", "Medium", "High", "Urgent"],
+      },
+    ],
+    success: "Complaint updated successfully.",
+  },
   officials: {
     endpoint: "/official",
     formId: "official-form",
@@ -177,13 +212,23 @@ if (definition) {
     row.dataset.recordId = record.id;
     records.set(String(record.id), record);
 
-    if (moduleName === "requests") appendTextCell(row, record.id, "ID");
+    if (moduleName === "requests" || moduleName === "complaints") appendTextCell(row, record.id, "ID");
     for (const field of definition.fields) {
-      if (moduleName === "requests" && field.name === "resident_id") {
+      if ((moduleName === "requests" || moduleName === "complaints") && field.name === "resident_id") {
         appendTextCell(row, record.resident_name || record.resident_id || "Unknown", field.label);
       } else {
         let value = record[field.name];
         if (field.type === "date" && value) value = new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString();
+        if (moduleName === "complaints" && field.name === "status") {
+          const pill = document.createElement("span");
+          pill.className = `status-pill ${String(value || "Submitted").toLowerCase().replace(/\s+/g, "-")}`;
+          pill.textContent = value || "Submitted";
+          const cell = document.createElement("td");
+          cell.dataset.label = field.label;
+          cell.appendChild(pill);
+          row.appendChild(cell);
+          continue;
+        }
         appendTextCell(row, value, field.label);
       }
     }
@@ -211,7 +256,7 @@ if (definition) {
   const renderEditingRow = (record) => {
     const row = document.createElement("tr");
     row.dataset.recordId = record.id;
-    if (moduleName === "requests") appendTextCell(row, record.id, "ID");
+    if (moduleName === "requests" || moduleName === "complaints") appendTextCell(row, record.id, "ID");
     for (const field of definition.fields) {
       const cell = document.createElement("td");
       cell.dataset.label = field.label;
@@ -267,11 +312,13 @@ if (definition) {
       totalPages = result.totalPages || 1;
       page += 1;
     } while (page <= totalPages);
-    if (moduleName === "requests") {
+    if (moduleName === "requests" || moduleName === "complaints") {
       const select = form.elements.namedItem("resident_id");
-      select.replaceChildren(new Option("Select resident", ""));
-      for (const resident of residents) {
-        select.add(new Option(`${resident.full_name} (${resident.resident_id || resident.id})`, resident.id));
+      if (select) {
+        select.replaceChildren(new Option("Select resident", ""));
+        for (const resident of residents) {
+          select.add(new Option(`${resident.full_name} (${resident.resident_id || resident.id})`, resident.id));
+        }
       }
     }
   };

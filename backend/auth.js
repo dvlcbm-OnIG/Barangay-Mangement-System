@@ -1,26 +1,8 @@
 const crypto = require("crypto");
-const loginActivityModel = require("./models/loginActivityModel");
 
 const SESSION_COOKIE = "barangay_session";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const sessions = new Map();
-
-const recordSessionExpiration = (sessionId) => {
-  if (!sessionId) return;
-  loginActivityModel.markExpired(sessionId).catch((error) => {
-    console.error("Could not record session expiration:", error.message);
-  });
-};
-
-const touchSession = (session) => {
-  const now = Date.now();
-  session.lastActivityAt = now;
-  if (now - session.lastActivityPersistedAt < 60_000) return;
-  session.lastActivityPersistedAt = now;
-  loginActivityModel.updateLastActivity(session.sessionId).catch((error) => {
-    console.error("Could not update session activity:", error.message);
-  });
-};
 
 const getCookieValue = (req, cookieName) => {
   const cookieHeader = req.headers.cookie || "";
@@ -42,28 +24,22 @@ const getSessionUser = (req) => {
   if (!session) return null;
   if (session.expiresAt <= Date.now()) {
     sessions.delete(token);
-    recordSessionExpiration(session.sessionId);
     return null;
   }
-  touchSession(session);
   return session.user;
 };
 
-const createSession = (res, user, sessionId) => {
+const createSession = (res, user) => {
   for (const [token, session] of sessions) {
     if (session.expiresAt <= Date.now()) {
       sessions.delete(token);
-      recordSessionExpiration(session.sessionId);
     }
   }
   const token = crypto.randomBytes(32).toString("hex");
   const now = Date.now();
   sessions.set(token, {
     user,
-    sessionId,
     expiresAt: now + SESSION_TTL_MS,
-    lastActivityAt: now,
-    lastActivityPersistedAt: now,
   });
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   res.setHeader(
@@ -74,11 +50,9 @@ const createSession = (res, user, sessionId) => {
 
 const destroySession = (req, res) => {
   const token = getCookieValue(req, SESSION_COOKIE);
-  const session = token ? sessions.get(token) : null;
   if (token) sessions.delete(token);
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   res.setHeader("Set-Cookie", `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`);
-  return session?.sessionId || null;
 };
 
 const requireAuth = (req, res, next) => {

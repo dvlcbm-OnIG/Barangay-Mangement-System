@@ -9,8 +9,8 @@ router.post("/logout", controller.logoutUser);
 router.get("/session", requireAuth, controller.getCurrentUser);
 
 router.use(requireAuth, requireAdmin);
+router.post("/account", controller.createProfileAccount);
 router.get("/dashboard", controller.showDashboard);
-router.get("/activity-logs", controller.showLoginActivity);
 
 router.post("/resident", controller.createResident);
 router.get("/resident", controller.showAllResidents);
@@ -21,6 +21,11 @@ router.post("/document-request", controller.createDocumentRequest);
 router.get("/document-request", controller.showAllDocumentRequests);
 router.patch("/document-request/:id", controller.updateDocumentRequest);
 router.delete("/document-request/:id", controller.deleteDocumentRequest);
+
+router.post("/complaint", controller.createComplaint);
+router.get("/complaint", controller.showAllComplaints);
+router.patch("/complaint/:id", controller.updateComplaint);
+router.delete("/complaint/:id", controller.deleteComplaint);
 
 router.post("/official", controller.createOfficial);
 router.get("/official", controller.showAllOfficials);

@@ -29,22 +29,108 @@ const verifyPassword = async (password, storedPassword) => {
 
 const authenticate = async (username, password) => {
   const result = await pool.query(
-    "SELECT id, username, password, full_name, role FROM users WHERE username = $1 LIMIT 1",
+    "SELECT id, username, password, full_name, role, resident_id, official_id FROM users WHERE username = $1 LIMIT 1",
     [username]
   );
 
   const user = result.rows[0];
   if (!user) return null;
 
+  const validProfileLink =
+    (user.role === "admin" && user.resident_id === null && user.official_id === null) ||
+    (user.role === "resident" && user.resident_id !== null && user.official_id === null) ||
+    (user.role === "official" && user.official_id !== null && user.resident_id === null);
+  if (!validProfileLink) return null;
+
   const verification = await verifyPassword(password, user.password || "");
-  if (!verification.valid || user.role !== "admin") return null;
+  if (!verification.valid) return null;
 
   if (verification.needsRehash) {
     const passwordHash = await hashPassword(password);
     await pool.query("UPDATE users SET password = $1 WHERE id = $2", [passwordHash, user.id]);
   }
 
-  return { id: user.id, username: user.username, full_name: user.full_name, role: user.role };
+  const authenticatedUser = {
+    id: user.id,
+    username: user.username,
+    full_name: user.full_name,
+    role: user.role,
+  };
+  if (user.role === "resident") authenticatedUser.resident_id = user.resident_id;
+  if (user.role === "official") authenticatedUser.official_id = user.official_id;
+  return authenticatedUser;
+};
+
+const createProfileAccount = async ({ profileType, profileId, username, password }) => {
+  const profileConfig = {
+    resident: { table: "residents", linkColumn: "resident_id" },
+    official: { table: "officials", linkColumn: "official_id" },
+  }[profileType];
+
+  if (!profileConfig) {
+    const error = new Error("Profile type must be resident or official.");
+    error.code = "INVALID_PROFILE_TYPE";
+    throw error;
+  }
+
+  const passwordHash = await hashPassword(password);
+  const client = await pool.connect();
+  let transactionStarted = false;
+
+  try {
+    await client.query("BEGIN");
+    transactionStarted = true;
+
+    const profileResult = await client.query(
+      `SELECT id, full_name FROM ${profileConfig.table} WHERE id = $1 FOR UPDATE`,
+      [profileId]
+    );
+    if (profileResult.rowCount === 0) {
+      const error = new Error("The selected profile was not found.");
+      error.code = "PROFILE_NOT_FOUND";
+      throw error;
+    }
+
+    const linkedAccount = await client.query(
+      `SELECT id FROM users WHERE ${profileConfig.linkColumn} = $1 LIMIT 1`,
+      [profileId]
+    );
+    if (linkedAccount.rowCount > 0) {
+      const error = new Error("The selected profile already has a login account.");
+      error.code = "PROFILE_ALREADY_LINKED";
+      throw error;
+    }
+
+    const profile = profileResult.rows[0];
+    const accountResult = await client.query(
+      `INSERT INTO users (username, password, full_name, role, resident_id, official_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, username, full_name, role, resident_id, official_id`,
+      [
+        username,
+        passwordHash,
+        profile.full_name,
+        profileType,
+        profileType === "resident" ? profileId : null,
+        profileType === "official" ? profileId : null,
+      ]
+    );
+
+    await client.query("COMMIT");
+    transactionStarted = false;
+    return accountResult.rows[0];
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (_rollbackError) {
+        // Preserve the original failure for the caller.
+      }
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 const createConfiguredAdmin = async () => {
@@ -81,4 +167,4 @@ const createConfiguredAdmin = async () => {
   return true;
 };
 
-module.exports = { authenticate, createConfiguredAdmin, hashPassword };
+module.exports = { authenticate, createConfiguredAdmin, createProfileAccount, hashPassword };

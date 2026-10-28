@@ -1,13 +1,11 @@
-const crypto = require("crypto");
+const { pool } = require("../db");
 const announcementModel = require("../models/announcementModel");
 const dashboardModel = require("../models/dashboardModel");
 const documentRequestModel = require("../models/documentRequestModel");
 const officialModel = require("../models/officialModel");
 const residentModel = require("../models/residentModel");
 const userModel = require("../models/userModel");
-const loginActivityModel = require("../models/loginActivityModel");
-const { getClientMetadata } = require("../clientMetadata");
-const { SESSION_TTL_MS, createSession, destroySession } = require("../auth");
+const { createSession, destroySession } = require("../auth");
 
 const normalizeText = (value) => (value === undefined || value === null ? null : String(value).trim());
 
@@ -88,47 +86,177 @@ const showDashboard = async (_req, res) => {
   }
 };
 
+const createComplaint = async (req, res) => {
+  const payload = sanitizePayload(req.body, [
+    "resident_id",
+    "complainant_name",
+    "complainant_contact",
+    "complaint_type",
+    "subject",
+    "description",
+    "status",
+    "priority",
+  ]);
+
+  if (!payload.complainant_name || !payload.complaint_type || !payload.subject || !payload.description) {
+    return res.status(400).json({ message: "Complainant name, complaint type, subject, and description are required." });
+  }
+
+  const validationError =
+    validateChoice(payload, "status", ["Submitted", "Under Review", "Validated", "Resolved", "Rejected"], "Status") ||
+    validateChoice(payload, "priority", ["Low", "Medium", "High", "Urgent"], "Priority") ||
+    validateContactNumber({ contact_number: payload.complainant_contact });
+
+  if (validationError) return res.status(400).json({ message: validationError });
+
+  if (payload.resident_id && !/^[1-9]\d*$/.test(String(payload.resident_id))) {
+    return res.status(400).json({ message: "Please select a valid resident." });
+  }
+
+  try {
+    if (payload.resident_id) {
+      const result = await pool.query("SELECT id FROM residents WHERE id = $1 LIMIT 1", [payload.resident_id]);
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Resident not found." });
+      }
+    }
+
+    const complaint = await pool.query(
+      `INSERT INTO complaints (
+        complaint_id,
+        resident_id,
+        complainant_name,
+        complainant_contact,
+        complaint_type,
+        subject,
+        description,
+        status,
+        priority,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) RETURNING *`,
+      [
+        `CMP-${Date.now()}`,
+        payload.resident_id || null,
+        payload.complainant_name,
+        payload.complainant_contact || null,
+        payload.complaint_type,
+        payload.subject,
+        payload.description,
+        payload.status || "Submitted",
+        payload.priority || "Medium",
+      ]
+    );
+
+    res.status(201).json(complaint.rows[0]);
+  } catch (error) {
+    handleDatabaseError(res, error);
+  }
+};
+
+const showAllComplaints = async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT c.*, r.full_name AS resident_name
+       FROM complaints c
+       LEFT JOIN residents r ON r.id = c.resident_id
+       ORDER BY c.id DESC`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    handleDatabaseError(res, error);
+  }
+};
+
+const updateComplaint = async (req, res) => {
+  if (rejectIdentifierChanges(req, res, ["id", "complaint_id"])) return;
+  const payload = sanitizePayload(req.body, [
+    "resident_id",
+    "complainant_name",
+    "complainant_contact",
+    "complaint_type",
+    "subject",
+    "description",
+    "status",
+    "priority",
+  ]);
+  if (Object.keys(payload).length === 0) {
+    return res.status(400).json({ message: "No valid complaint fields were provided." });
+  }
+
+  const validationError =
+    validateDate({ date: payload.resolved_at }, "date", "Resolved date") ||
+    validateChoice(payload, "status", ["Submitted", "Under Review", "Validated", "Resolved", "Rejected"], "Status") ||
+    validateChoice(payload, "priority", ["Low", "Medium", "High", "Urgent"], "Priority") ||
+    validateContactNumber({ contact_number: payload.complainant_contact }) ||
+    validateRequiredUpdates(payload, [
+      ["complainant_name", "Complainant name"],
+      ["complaint_type", "Complaint type"],
+      ["subject", "Subject"],
+      ["description", "Description"],
+      ["status", "Status"],
+    ]);
+
+  if (validationError) return res.status(400).json({ message: validationError });
+  if (!validateRecordId(req, res)) return;
+
+  if (payload.resident_id && !/^[1-9]\d*$/.test(String(payload.resident_id))) {
+    return res.status(400).json({ message: "Please select a valid resident." });
+  }
+
+  try {
+    if (payload.resident_id) {
+      const residentExists = await pool.query("SELECT id FROM residents WHERE id = $1 LIMIT 1", [payload.resident_id]);
+      if (residentExists.rowCount === 0) {
+        return res.status(404).json({ message: "Resident not found." });
+      }
+    }
+
+    const values = [];
+    const assignments = [];
+    Object.entries(payload).forEach(([field, value]) => {
+      values.push(value === "" ? null : value);
+      assignments.push(`${field} = $${values.length}`);
+    });
+    values.push(req.params.id);
+    const result = await pool.query(
+      `UPDATE complaints SET ${assignments.join(", ")}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+
+    if (!result.rows[0]) return res.status(404).json({ message: "Complaint not found." });
+    res.json(result.rows[0]);
+  } catch (error) {
+    handleDatabaseError(res, error);
+  }
+};
+
+const deleteComplaint = async (req, res) => {
+  if (!validateRecordId(req, res)) return;
+  try {
+    const result = await pool.query("DELETE FROM complaints WHERE id = $1 RETURNING id", [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).json({ message: "Complaint not found." });
+    res.json({ message: "Complaint deleted successfully." });
+  } catch (error) {
+    handleDatabaseError(res, error);
+  }
+};
+
 const loginUser = async (req, res) => {
   const username = normalizeText(req.body?.username);
   const password = typeof req.body?.password === "string" ? req.body.password : "";
-  const metadata = getClientMetadata(req);
 
   if (!username || !password) {
-    try {
-      await loginActivityModel.createFailedLogin({
-        accountIdentifier: username?.slice(0, 255) || null,
-        failureReason: "missing_credentials",
-        metadata,
-      });
-    } catch (error) {
-      console.error("Could not record failed login attempt:", error.message);
-    }
     return res.status(400).json({ message: "Username and password are required." });
   }
 
   try {
     const user = await userModel.authenticate(username, password);
     if (!user) {
-      try {
-        await loginActivityModel.createFailedLogin({
-          accountIdentifier: username.slice(0, 255),
-          failureReason: "invalid_credentials",
-          metadata,
-        });
-      } catch (error) {
-        console.error("Could not record failed login attempt:", error.message);
-      }
       return res.status(401).json({ message: "Invalid username or password." });
     }
 
-    const sessionId = crypto.randomUUID();
-    await loginActivityModel.createSuccessfulLogin({
-      sessionId,
-      user,
-      expiresInMs: SESSION_TTL_MS,
-      metadata,
-    });
-    createSession(res, user, sessionId);
+    createSession(res, user);
     res.json({
       message: "Login successful.",
       user: {
@@ -144,65 +272,65 @@ const loginUser = async (req, res) => {
   }
 };
 
-const logoutUser = async (req, res) => {
-  const sessionId = destroySession(req, res);
-  if (sessionId) {
-    try {
-      const updated = await loginActivityModel.markLoggedOut(sessionId);
-      if (!updated) await loginActivityModel.markExpired(sessionId);
-    } catch (error) {
-      console.error("Could not record logout:", error.message);
-      return res.status(500).json({ message: "Your session ended, but logout activity could not be saved." });
-    }
-  }
-  res.json({ message: "Logged out successfully." });
-};
+const createProfileAccount = async (req, res) => {
+  const profileType = req.body?.profile_type;
+  const profileId = req.body?.profile_id;
+  const username = normalizeText(req.body?.username);
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
 
-const showLoginActivity = async (req, res) => {
-  const page = Number(req.query.page || 1);
-  const limit = Number(req.query.limit || 25);
-  const eventType = normalizeText(req.query.eventType) || "";
-  const status = normalizeText(req.query.status) || "";
-  const sort = normalizeText(req.query.sort) || "login_at";
-  const search = normalizeText(req.query.search)?.slice(0, 200) || "";
-  const parseBoundary = (value) => {
-    if (value === undefined || value === "") return null;
-    if (typeof value !== "string" || Number.isNaN(Date.parse(value))) return undefined;
-    return new Date(value).toISOString();
-  };
-  const from = parseBoundary(req.query.from);
-  const to = parseBoundary(req.query.to);
-
-  if (!Number.isInteger(page) || page < 1 ||
-      !Number.isInteger(limit) || limit < 1 || limit > 100) {
-    return res.status(400).json({ message: "Invalid page or page size." });
+  if (profileType !== "resident" && profileType !== "official") {
+    return res.status(400).json({ message: "Profile type must be resident or official." });
   }
-  if (!["", "success", "failed", "logout"].includes(eventType)) {
-    return res.status(400).json({ message: "Invalid event type filter." });
+  if (!/^[1-9]\d*$/.test(String(profileId ?? "")) || !Number.isSafeInteger(Number(profileId))) {
+    return res.status(400).json({ message: "A valid profile ID is required." });
   }
-  if (!["", "active", "logged_out", "expired", "failed"].includes(status)) {
-    return res.status(400).json({ message: "Invalid session status filter." });
+  if (!username || username.length < 3 || username.length > 64 || !/^[A-Za-z0-9._-]+$/.test(username)) {
+    return res.status(400).json({ message: "Username must be 3 to 64 characters using letters, numbers, periods, underscores, or hyphens." });
   }
-  if (!["login_at", "last_activity_at"].includes(sort)) {
-    return res.status(400).json({ message: "Invalid sort order." });
-  }
-  if (from === undefined || to === undefined || (from && to && from >= to)) {
-    return res.status(400).json({ message: "Invalid date range." });
+  if (password.length < 12 || password.length > 128) {
+    return res.status(400).json({ message: "Password must be between 12 and 128 characters." });
   }
 
   try {
-    res.set("Cache-Control", "no-store");
-    await loginActivityModel.expireElapsedSessions();
-    const filters = { search, eventType, status, from, to, sort, page, limit };
-    const [result, summary] = await Promise.all([
-      loginActivityModel.findPage(filters),
-      loginActivityModel.getSummary({ from, to }),
-    ]);
-    res.json({ ...result, summary });
+    const account = await userModel.createProfileAccount({
+      profileType,
+      profileId: Number(profileId),
+      username,
+      password,
+    });
+    const responseUser = {
+      id: account.id,
+      username: account.username,
+      full_name: account.full_name,
+      role: account.role,
+    };
+    if (account.role === "resident") responseUser.resident_id = account.resident_id;
+    if (account.role === "official") responseUser.official_id = account.official_id;
+    return res.status(201).json({ message: "Login account created and linked successfully.", user: responseUser });
   } catch (error) {
-    console.error("Could not load login activity:", error.message);
-    res.status(500).json({ message: "Unable to load login activity right now." });
+    if (error.code === "PROFILE_NOT_FOUND") {
+      return res.status(404).json({ message: "The selected profile was not found." });
+    }
+    if (error.code === "PROFILE_ALREADY_LINKED" || error.constraint === "users_resident_id_key" || error.constraint === "users_official_id_key") {
+      return res.status(409).json({ message: "The selected profile already has a login account." });
+    }
+    if (error.code === "23505" && error.constraint === "users_username_key") {
+      return res.status(409).json({ message: "That username is already in use." });
+    }
+    if (error.code === "23505") {
+      return res.status(409).json({ message: "The account conflicts with an existing username or profile link." });
+    }
+    if (error.code === "23503" || error.code === "23514") {
+      return res.status(409).json({ message: "The profile link is invalid or conflicts with the account role." });
+    }
+    console.error("Could not create profile account:", error.message);
+    return res.status(500).json({ message: "Unable to create the login account right now." });
   }
+};
+
+const logoutUser = async (req, res) => {
+  destroySession(req, res);
+  res.json({ message: "Logged out successfully." });
 };
 
 const getCurrentUser = (req, res) => {
@@ -515,9 +643,9 @@ const deleteAnnouncement = async (req, res) => {
 module.exports = {
   showDashboard,
   loginUser,
+  createProfileAccount,
   logoutUser,
   getCurrentUser,
-  showLoginActivity,
   createResident,
   showAllResidents,
   updateResident,
@@ -526,6 +654,10 @@ module.exports = {
   showAllDocumentRequests,
   updateDocumentRequest,
   deleteDocumentRequest,
+  createComplaint,
+  showAllComplaints,
+  updateComplaint,
+  deleteComplaint,
   createOfficial,
   showAllOfficials,
   updateOfficial,
